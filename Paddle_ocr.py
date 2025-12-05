@@ -185,6 +185,10 @@ class prescription_ocr():
                         if s in self.drug_unit:
                             
                             return_drug_info[i][j] = t+s
+                        
+                #if 여기에 I 1  같이 잘못 인식된 넘들 있으면 I같은거 제거해주는 코드 만들어야됨 -> re.find_all은 OO정5밀리 이런거 나오면 5만 남기고 없에서 안돼고 
+                    #이름 다음: j가 1이상 일때 요소들을 숫자와 문자로 분리해서 문자가 drug_unit에 없으면 없에기 분리 방법은  re.match로 앞에 숫자 1개 이상 뒤에 문자 1개이상, 앞에 문자 1개이상 뒤에 숫자 1개 이상으로 하는게 좋을듯
+                            
         print(return_drug_info)
         print(return_Dosage)
         return return_drug_info, return_Dosage 
