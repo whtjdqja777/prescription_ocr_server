@@ -78,28 +78,51 @@ class prescription_ocr():
                 
                 elif leninst>=2:
                     
+                    
+                    if  re.match(r'(\d{3,})(.*)', inst.replace(" ","")):
+                        inst2 = inst.replace(" ","") 
+                        if inst2.isdigit() and max(Levenshtein.ratio(i,inst2) for i in self.name_insurance['보험코드']) >= 0.8 and len(inst2)>4:
+                            
+                            print('isdigit 실행', inst2)
+                            if inst2 in self.name_insurance['보험코드'].values:
+                                name = self.name_insurance.loc[self.name_insurance['보험코드'] == inst2, '품목명'].iloc[0]
+                                print('if_name', name)
+                            else:
+                                
+                                insurance_code_ratio = [Levenshtein.ratio(i, inst2) for i in self.name_insurance['보험코드']]
 
-                    if  re.match(r'(\d{3,})(.*)', inst):
-                        match = re.match(r'(\d+)(.*)', inst)
-                        
-                        
-                        
-                        number, string = match.groups()
-                         
-                        string = string.split('(')[0].replace(" ","")
-                        nameratio = [Levenshtein.ratio(name, string) for name in self.name_insurance.loc[:, '품목명']]
-                        max_name_ratio = max(nameratio)
-                        print(string, max_name_ratio)
-                        if max_name_ratio > 0.7:
-                            print('통과', string, max_name_ratio)
-                            drug_info = []
+                                idx = insurance_code_ratio.index(max(insurance_code_ratio))
+
+                                name = self.name_insurance.loc[idx, '품목명']
+                                print('else_name', name)
+                                
                             
-                            # name = self.name_insurance.loc[nameratio.index(max_name_ratio), '품목명']
-                            
+
                             find_name_idx = box.index(inst)
                             drug_info = box[find_name_idx+1:]
-                            drug_info.insert(0,string)
+                            drug_info.insert(0,name)
                             return_drug_info.append(drug_info)
+                        else:
+                            match = re.match(r'(\d+)(.*)', inst.replace(" ",""))
+                            
+                            
+                            
+                            number, string = match.groups()
+                            
+                            string = string.split('(')[0].replace(" ","")
+                            nameratio = [Levenshtein.ratio(name, string) for name in self.name_insurance.loc[:, '품목명']]
+                            max_name_ratio = max(nameratio)
+                            print(string, max_name_ratio)
+                            if max_name_ratio > 0.7:
+                                print('통과', string, max_name_ratio)
+                                drug_info = []
+                                
+                                # name = self.name_insurance.loc[nameratio.index(max_name_ratio), '품목명']
+                                
+                                find_name_idx = box.index(inst)
+                                drug_info = box[find_name_idx+1:]
+                                drug_info.insert(0,string)
+                                return_drug_info.append(drug_info)
 
                     elif re.match(r'^(.+?)(\d{3,})$', inst.replace(" ","")):
                         #싱카스트츄정5밀리그램 이거 싱카스트츄정까지만 짤라서 유사도 0.6666으로 나옴
@@ -124,15 +147,12 @@ class prescription_ocr():
                             drug_info = box[find_name_idx+1:]
                             drug_info.insert(0,string)
                             return_drug_info.append(drug_info)
-                    elif re.match(r'(.+?)(\d+)$', inst.replace(" ","")):
-                        match = re.match(r'(.+?)(\d+)$', inst.replace(" ",""))
-                        s, t = match.groups()
-                        print('1')
-                        if s in self.drug_unit:
-                            isidx = box.index(inst)
-                            box[isidx] = t+s
+                    
 
                     else:
+                        
+                    
+                       
                         string = inst
                         string = string.split('(')[0].replace(" ","")
                         nameratio = [Levenshtein.ratio(name, string) for name in self.name_insurance.loc[:, '품목명']]
@@ -153,6 +173,18 @@ class prescription_ocr():
                 
 
         return_drug_info = [i[:len(return_Dosage)] for i in return_drug_info]
+        print(return_drug_info)
+        print(return_Dosage)
+        for i in range(len(return_drug_info)):
+            for j in range(len(return_drug_info[i])):
+                if re.match(r'(.+?)(\d+)$', return_drug_info[i][j].replace(" ","")):
+                        print("조건 포인트:", return_drug_info[i][j])
+                        match = re.match(r'(.+?)(\d+)$', return_drug_info[i][j].replace(" ",""))
+                        s, t = match.groups()
+                        print('1')
+                        if s in self.drug_unit:
+                            
+                            return_drug_info[i][j] = t+s
         print(return_drug_info)
         print(return_Dosage)
         return return_drug_info, return_Dosage 
@@ -226,7 +258,7 @@ while True:
     try:
         img_name = input()
         prescription = cv2.imread(img_name)
-        # prescription = cv2.cvtColor(prescription, cv2.COLOR_BGR2GRAY)
+        prescription = cv2.cvtColor(prescription, cv2.COLOR_BGR2GRAY)# 그레이 스케일로 바꿔야 인식 더 잘함
         # binary_image = model.dotted_line_to_line(prescription)
         table = model.grid_predict(prescription)
         model.extract_element(table)
