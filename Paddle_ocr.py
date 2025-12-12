@@ -12,11 +12,13 @@ class prescription_ocr():
     def __init__(self):
         self.grid_ocr = model
         self.Dosage = ['처방의약품의명칭', '1일투약량','1회투약량','1일투여횟수','횟수', '총투약일수','1회투여횟수','1회투여량','투약일수']
-        self.name_insurance = pd.read_csv('name_insurance3.csv')
+        self.name_insurance = pd.read_csv('name_insurance5.csv')
         self.drug_unit = ['정','개', 'gm', 'mg', 'mcg','mog','μg','ug' 'ng', 'mL', 'ml','mi' 'L','cc','CC',
                           'IU','회분','포','캡슐','캡슐정','스푼','ml 스푼','g','FTU']
         self.table = [['653800341 레보트로시럽', '9 cc', '3 cc', '3', '3'], ['새로딘시럽(로라타딘) 644000941', '개 1', '1 개', '1', '3'], ['유시락스시럽 654100091', '18 cc', '6 cC gm0.6667gm', '3 3', '3 3'], ['싱카스트추정5밀리그램(몬테루카 542103840', '1 정', '정', '1', '30'], ['645700564 삼아리도맥스크림', '개 1', '1 개', '1', '1']]
         self.Dosage_unit = [['횟수', '일수'], ['여량', '약량']]
+        self.rec_boxes = []
+        self.rec_texts = []
     def grid_predict(self, img):#격자인식 모델, Beautifulsoup의 html 파서로 행별 요소 출력
         # image = cv2.imread('prescription6.jpg')
         if len(img.shape) == 2:
@@ -49,9 +51,13 @@ class prescription_ocr():
                 t1 = t['table_ocr_pred']
 
                 print('table_ocr_pred-> rec_texts 길이', len(t1['rec_texts']))
+                self.rec_texts = t1['rec_texts']
+                self.rec_boxes = t1['rec_boxes']
+
                 for i in range(len(t1['rec_boxes'])):
 
-                    print('rec_texts : rec_boxes', t1['rec_texts'][i], t1['rec_boxes'][i])
+                    print('rec_texts : rec_boxes', t1['rec_texts'][i], t1['rec_boxes'][i],': x_min, y_min, x_max, y_max')
+                    #보니까  y_min기준으로 정렬을 하든 총합 기준으로 정렬을 하고 x기준으로 행 나눠주면 될거 같기도
                 # print(t['table_region_id'])
                 html = t['pred_html']       # 표 전체 HTML
             print(type(html))
@@ -94,7 +100,7 @@ class prescription_ocr():
                 leninst = len(inst)
                 Dosratiolist = [Levenshtein.ratio(inst.replace(" ",""), i) for i in self.Dosage]
                 print(inst, Dosratiolist)
-                if any(np.array(Dosratiolist) > 0.7):
+                if any(np.array(Dosratiolist) > 0.7):# Dosage 하고 비교한 값이 0.7이 넘으면 실행
                     print(Dosratiolist)
                     maxratio = max(Dosratiolist)
                     maxratio_idx = Dosratiolist.index(maxratio)            
@@ -103,53 +109,48 @@ class prescription_ocr():
                 elif leninst>=2:
                     
                     
-                    if  re.match(r'(\d{3,})(.*)', inst.replace(" ","")):
-                        inst2 = inst.replace(" ","") 
-                        if inst2.isdigit() and max(Levenshtein.ratio(i,inst2) for i in self.name_insurance['보험코드']) >= 0.8 and len(inst2)>4:
+                    if  re.match(r'(\d{5,})\s*(.+)', inst.replace(" ","")):
+                        print('1번쩨')
+                        d, s = re.match(r'(\d{5,})\s*(.+)', inst.replace(" ","").split('(')[0]).groups()
+                        print(d, s)
+                        
                             
-                            print('isdigit 실행', inst2)
-                            if inst2 in self.name_insurance['보험코드'].values:
-                                name = self.name_insurance.loc[self.name_insurance['보험코드'] == inst2, '품목명'].iloc[0]
-                                print('if_name', name)
-                            else:
-                                
-                                insurance_code_ratio = [Levenshtein.ratio(i, inst2) for i in self.name_insurance['보험코드']]
-
-                                idx = insurance_code_ratio.index(max(insurance_code_ratio))
-
-                                name = self.name_insurance.loc[idx, '품목명']
-                                print('else_name', name)
-                                
                             
-
-                            find_name_idx = box.index(inst)
-                            drug_info = box[find_name_idx+1:]
-                            drug_info.insert(0,name)
-                            return_drug_info.append(drug_info)
+                        if d in self.name_insurance['보험코드'].values:
+                            
+                            name = self.name_insurance.loc[self.name_insurance['보험코드'] == d, '품목명'].iloc[0]
+                            print('if_name', name)
                         else:
-                            match = re.match(r'(\d+)(.*)', inst.replace(" ",""))
                             
+                            insurance_code_ratio = [Levenshtein.ratio(i, s) for i in self.name_insurance['품목명']]
+
+                            idx = insurance_code_ratio.index(max(insurance_code_ratio))
+
+                            name = self.name_insurance.loc[idx, '품목명']
+                            print('else_name', name)
                             
-                            
-                            number, string = match.groups()
-                            
-                            string = string.split('(')[0].replace(" ","")
-                            nameratio = [Levenshtein.ratio(name, string) for name in self.name_insurance.loc[:, '품목명']]
-                            max_name_ratio = max(nameratio)
-                            name_in_dataset_idx = nameratio.index(max_name_ratio)
-                            print(string, max_name_ratio)
-                            if max_name_ratio > 0.7:
-                                print('통과', string, max_name_ratio)
-                                drug_info = []
-                                
-                                # name = self.name_insurance.loc[nameratio.index(max_name_ratio), '품목명']
-                                
-                                find_name_idx = box.index(inst)
-                                drug_info = box[find_name_idx+1:]
-                                drug_info.insert(0,self.name_insurance.loc[name_in_dataset_idx, '품목명'])
-                                return_drug_info.append(drug_info)
+                        usage_ratio_list = [Levenshtein.ratio(re.match(r'(\d{5,})\s*(.+)',  i.replace(" ","").split('(')[0]).group(2), name)  if re.match(r'(\d{5,})\s*(.+)',  i.replace(" ","").split('(')[0]) else Levenshtein.ratio(i, name) for i in self.rec_texts ]
+                        # for i,j in zip(max_usage_ratio, )
+                        max_usage_ratio = max(usage_ratio_list)
+                        if len(usage_ratio_list) > 0 and max_usage_ratio > 0.7:
+                            max_usage_idx = usage_ratio_list.index(max_usage_ratio)
+                            name_min_y = self.rec_boxes[max_usage_idx][1]
+                            upper_name_min_y = name_min_y + 20
+                            lower_name_min_y = name_min_y - 20
+                            same_row_list = [(self.rec_boxes[i][0], self.rec_texts[i]) for i in range(len(self.rec_boxes)) if lower_name_min_y <= int(self.rec_boxes[i][1]) <= upper_name_min_y]
+                            same_row_list.sort(key= lambda x: x[0])
+                            print('extract_element First: row_list',same_row_list)
+                            print('extract_element First: last of row_list', same_row_list[-1])
+                            #이름의 최소 y죄표 기준 +- 20픽셀 범위의 값을 가지는 rec_boxes[i][1]들을 뽑고 최대 x좌표를 가지거나 x좌표 기준 정렬후 가장 오른쪽 애가 ['복용', '도포'] 등이 포함된 단어면 drug_info에 넣는다
+                            # 밑에서 Dosage 갯수 기준 슬라이싱 할떄 갯수 +1 만큼 슬라이싱하기  
+                        find_name_idx = box.index(inst)
+                        drug_info = box[find_name_idx+1:]
+                        drug_info.insert(0,name)
+                        return_drug_info.append(drug_info)
+                    
 
                     elif re.match(r'^(.+?)(\d{3,})$', inst.replace(" ","")):
+                        print('2번쩨')
                         #싱카스트츄정5밀리그램 이거 싱카스트츄정까지만 짤라서 유사도 0.6666으로 나옴
                         #이부분 고치기
                         #러프한 방법: 대부분 보험코드하고 품목명 사이에 공백이 있기 때문에 공백을 기준으로 나눈다
@@ -176,26 +177,35 @@ class prescription_ocr():
                     
 
                     else:
-                        
+                        print('3번쩨')
                     
-                       
+                        if not inst.isdigit():
+                            col = '품목명'
+                            cond = 0.7
+                        else:
+                            col = '보험코드'
+                            cond = 0.85
+
                         string = inst
                         string = string.split('(')[0].replace(" ","")
-                        nameratio = [Levenshtein.ratio(name, string) for name in self.name_insurance.loc[:, '품목명']]
+                        nameratio = [Levenshtein.ratio(name, string) for name in self.name_insurance.loc[:, col]]
                         max_name_ratio = max(nameratio)
                         name_in_dataset_idx = nameratio.index(max_name_ratio)
                         print(string, max_name_ratio)
-                        if max_name_ratio > 0.7:
+                        
+                        if max_name_ratio > cond:
                             print('통과', string, max_name_ratio)
                             drug_info = []
                             
-                            # name = self.name_insurance.loc[nameratio.index(max_name_ratio), '품목명']
+                            name = self.name_insurance.loc[name_in_dataset_idx, '품목명']
                             
-                            find_name_idx = box.index(inst)
-                            drug_info = box[find_name_idx+1:]
-                            drug_info.insert(0,self.name_insurance.loc[name_in_dataset_idx, '품목명'])
-                            return_drug_info.append(drug_info)
-                
+                            if  all(name not in i for i in return_drug_info): 
+                                find_name_idx = box.index(inst)
+                                drug_info = box[find_name_idx+1:]
+                                
+                                drug_info.insert(0,self.name_insurance.loc[name_in_dataset_idx, '품목명'])
+                                return_drug_info.append(drug_info)
+                    
                 
 
         return_drug_info = [i[:len(return_Dosage)] for i in return_drug_info]
@@ -232,7 +242,9 @@ class prescription_ocr():
                     # 투여량, 투약량 -> 단위 있음
                     # 횟수, 일수 -> 단위 없음
                     # 뒤에서 2개 (여량, 약량),(횟수, 일수)이들이 이미 Dosage에서 매핑 되서 나온거기 때문에 유사도 검사는 필요없고
-                    # 뒤에서 2개 슬라이싱 해서 [여량, 약량], [횟수, 일수] 두 리스트 중 어디에 포함되는지 확인하고 단위를 붙일지 말지를 결정 
+                    # 뒤에서 2개 슬라이싱 해서 [여량, 약량], [횟수, 일수] 두 리스트 중 어디에 포함되는지 확인하고 단위를 붙일지 말지를 결정 \
+                    # 이 문제는 로직 내부에 코드 추가하여 해결함
+                
                             
         print(return_drug_info)
         print(return_Dosage)
