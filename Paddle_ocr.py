@@ -128,7 +128,8 @@ class prescription_ocr():
 
                             name = self.name_insurance.loc[idx, '품목명']
                             print('else_name', name)
-                            
+                        # 여기서 부터 용법 찾는 코드 -> 이거 따로 함수화 해야함 ->  if re.match(r'(\d{5,})\s*(.+)', inst) elif ... 으로 사용할 정규식 정해주고 돌리면 될듯  
+                        #함수로 만들어서 1번째, 2번째, 3번째 메인코드에 붙이기
                         usage_ratio_list = [Levenshtein.ratio(re.match(r'(\d{5,})\s*(.+)',  i.replace(" ","").split('(')[0]).group(2), name)  if re.match(r'(\d{5,})\s*(.+)',  i.replace(" ","").split('(')[0]) else Levenshtein.ratio(i, name) for i in self.rec_texts ]
                         # for i,j in zip(max_usage_ratio, )
                         max_usage_ratio = max(usage_ratio_list)
