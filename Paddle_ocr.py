@@ -19,6 +19,7 @@ class prescription_ocr():
         self.Dosage_unit = [['횟수', '일수'], ['여량', '약량']]
         self.rec_boxes = []
         self.rec_texts = []
+        
     def grid_predict(self, img):#격자인식 모델, Beautifulsoup의 html 파서로 행별 요소 출력
         # image = cv2.imread('prescription6.jpg')
         if len(img.shape) == 2:
@@ -111,47 +112,44 @@ class prescription_ocr():
                     
                     if  re.match(r'(\d{5,})\s*(.+)', inst.replace(" ","")):
                         print('1번쩨')
+                        
                         d, s = re.match(r'(\d{5,})\s*(.+)', inst.replace(" ","").split('(')[0]).groups()
                         print(d, s)
-                        
-                            
+                        name_ratio_max = 0
+                        insurance_ratio_max = False
                             
                         if d in self.name_insurance['보험코드'].values:
+                            insurance_ratio_max = True
                             
-                            name = self.name_insurance.loc[self.name_insurance['보험코드'] == d, '품목명'].iloc[0]
-                            print('if_name', name)
                         else:
-                            
-                            insurance_code_ratio = [Levenshtein.ratio(i, s) for i in self.name_insurance['품목명']]
+                            name_ratio = [Levenshtein.ratio(i, s) for i in self.name_insurance['품목명']]
+                            name_ratio_max = max(name_ratio)
 
-                            idx = insurance_code_ratio.index(max(insurance_code_ratio))
 
+                        if insurance_ratio_max:
+                            name = self.name_insurance.loc[self.name_insurance['보험코드'] == d, '품목명'].iloc[0]
+
+                        elif name_ratio_max > 0.7:
+                            idx = name_ratio.index(name_ratio_max)
                             name = self.name_insurance.loc[idx, '품목명']
                             print('else_name', name)
                         # 여기서 부터 용법 찾는 코드 -> 이거 따로 함수화 해야함 ->  if re.match(r'(\d{5,})\s*(.+)', inst) elif ... 으로 사용할 정규식 정해주고 돌리면 될듯  
                         #함수로 만들어서 1번째, 2번째, 3번째 메인코드에 붙이기
-                        usage_ratio_list = [Levenshtein.ratio(re.match(r'(\d{5,})\s*(.+)',  i.replace(" ","").split('(')[0]).group(2), name)  if re.match(r'(\d{5,})\s*(.+)',  i.replace(" ","").split('(')[0]) else Levenshtein.ratio(i, name) for i in self.rec_texts ]
-                        # for i,j in zip(max_usage_ratio, )
-                        max_usage_ratio = max(usage_ratio_list)
-                        if len(usage_ratio_list) > 0 and max_usage_ratio > 0.7:
-                            max_usage_idx = usage_ratio_list.index(max_usage_ratio)
-                            name_min_y = self.rec_boxes[max_usage_idx][1]
-                            upper_name_min_y = name_min_y + 20
-                            lower_name_min_y = name_min_y - 20
-                            same_row_list = [(self.rec_boxes[i][0], self.rec_texts[i]) for i in range(len(self.rec_boxes)) if lower_name_min_y <= int(self.rec_boxes[i][1]) <= upper_name_min_y]
-                            same_row_list.sort(key= lambda x: x[0])
-                            print('extract_element First: row_list',same_row_list)
-                            print('extract_element First: last of row_list', same_row_list[-1])
-                            #이름의 최소 y죄표 기준 +- 20픽셀 범위의 값을 가지는 rec_boxes[i][1]들을 뽑고 최대 x좌표를 가지거나 x좌표 기준 정렬후 가장 오른쪽 애가 ['복용', '도포'] 등이 포함된 단어면 drug_info에 넣는다
-                            # 밑에서 Dosage 갯수 기준 슬라이싱 할떄 갯수 +1 만큼 슬라이싱하기  
-                        find_name_idx = box.index(inst)
-                        drug_info = box[find_name_idx+1:]
-                        drug_info.insert(0,name)
-                        return_drug_info.append(drug_info)
-                    
 
-                    elif re.match(r'^(.+?)(\d{3,})$', inst.replace(" ","")):
+                        if name:
+                            usage = self.Find_Usage(name, 1)
+                            find_name_idx = box.index(inst)
+                            drug_info = box[find_name_idx+1:]
+                            if usage:
+                                drug_info.append(usage)
+                            drug_info.insert(0,name)
+                            print('추가될 drug_info', drug_info)
+                            return_drug_info.append(drug_info)
+                            print('추가된 return_drug_info', return_drug_info)
+
+                    elif re.match(r'^(.+?)(\d{5,})$', inst.replace(" ","")):
                         print('2번쩨')
+                        
                         #싱카스트츄정5밀리그램 이거 싱카스트츄정까지만 짤라서 유사도 0.6666으로 나옴
                         #이부분 고치기
                         #러프한 방법: 대부분 보험코드하고 품목명 사이에 공백이 있기 때문에 공백을 기준으로 나눈다
@@ -170,12 +168,15 @@ class prescription_ocr():
                             drug_info = []
                             
                             # name = self.name_insurance.loc[nameratio.index(max_name_ratio), '품목명']
-                            
+                            usage = self.Find_Usage(name, 2)
                             find_name_idx = box.index(inst)
                             drug_info = box[find_name_idx+1:]
+                            if usage:
+                                drug_info.append(usage)
                             drug_info.insert(0,self.name_insurance.loc[name_in_dataset_idx, '품목명'])
+                            print('추가될 drug_info', drug_info)
                             return_drug_info.append(drug_info)
-                    
+                            print('추가된 return_drug_info', return_drug_info)
 
                     else:
                         print('3번쩨')
@@ -201,17 +202,23 @@ class prescription_ocr():
                             name = self.name_insurance.loc[name_in_dataset_idx, '품목명']
                             
                             if  all(name not in i for i in return_drug_info): 
+                                usage = self.Find_Usage(name, None)
                                 find_name_idx = box.index(inst)
                                 drug_info = box[find_name_idx+1:]
-                                
+                                if usage:
+                                    drug_info.append(usage)
                                 drug_info.insert(0,self.name_insurance.loc[name_in_dataset_idx, '품목명'])
+                                print('추가될 drug_info', drug_info)
                                 return_drug_info.append(drug_info)
+                                print('추가된 return_drug_info', return_drug_info)
                     
                 
-
-        return_drug_info = [i[:len(return_Dosage)] for i in return_drug_info]
+        return_Dosage.append('용법')
+        return_drug_info = [i[:len(return_Dosage)-1]+[i[-1]] for i in return_drug_info]# 여기서 [i[-1]] 추가하는 것 때문에 용법이 없는 애들도 ''가 추가 되는데 이게 
+                                                                                        # 대부분의 경우 해당 셀이 비어 있어서 ''로 출려되는 거기 때문에 나중에 후처리하던지 그냥 쓰면 될듯
         print(return_drug_info)
         print(return_Dosage)
+        #여기서 오류 발생 return_drug_info이 [None, None, None, None]으로 나옴
         for i in range(len(return_drug_info)):#순서 잘못된거 고치는 코드 + 인식 잘못된 애들 바꾸거나 수정
             for j in range(1, len(return_drug_info[i])):
                 if re.match(r'(.+?)(\d+\.?\d*)$', return_drug_info[i][j].replace(" ","")):# 이건 '개 1' 이렇게 나오는거 고쳐주는 코드 약물쪽에서 문자가 앞에 나오는 경우는 없다고 가정하고 '1개'와 같이 고쳐줌 
@@ -305,6 +312,53 @@ class prescription_ocr():
         cv2.imwrite("output.png", closed)
         print(result)
         return binary
+    def Find_Usage(self, name, autho):#1번 문제(모든약물에 대해 용법이 써있는 경우), 2번 문제(특정약물에 대해 용법이 써있는 경우)에 대해 용법을 추출 하는 함수
+                                    #3번 문제(모든약물에 대해 공통 용법이 써있는 경우) -> 이건 찾아보니까 케이스가 없음 나중에 생기면 코드 새로 넣기
+                                    #문제: '1일 1회 도포' 이거 ['1일', '1회', '도포']각각 다른 셀로 분류되는 케이스가 있음
+                                    #해결 아이디어1: Dosage의 마지막쪽 요소들은 투약 횟수, 투약 일수 등으로 숫자로만 이루어진 요소임
+                                    #뒤에서 부터 돌면서 처음으로 만나는 숫자요소 뒤에 애들의 좌표를 묶어 용법으로 사용한다
+                                    #해당 아이디어 문제점: 이 함수가 품목명 찾는 코드 돌면서 같이 실행되고 있어서 이상 문자 제거하는 후처리 로직을 수행하지 않고 용법을 추가하기 때문에
+                                    #마지막 요소 (횟수, 일수)가 후처리되지 않고 I1 마냥 나오면 숫자 요소를 찾지 못하거나 I1을 비롯한 앞의 요소들을 포함하여 용법에 들어갈 수 있다.
+                                    #또한, 에초에 해당 Dosage가 인식이 안된경우도 고려 (복용량, 투약량)등만 있는 경우 self.Dosage_unit으로 유사도 비교하던지 해서 해결 필요
+                                    # 해결방법: 해당 후처리 로직을 품목명 찾는 과정에서 수행하던지 용법 추가를 해당 후처리 후 수행하던지 해야됨 
+                                    #해결 아이디어2: rec_boxes, rec_texts 보면 [-> 1일 1회 도포] 이게 공백을 기준으로 나뉘어져 각각의 셀로 인식하고 있는것을 볼 수 있음
+                                    #그럼 html_pred에 있는 <td 'rowspan'=6> -> 1일 1회 도포 -> 1일 2회 도포...</td>를 볼수 있는데 
+                                    #[도포, 복용, 분, 식후]등의 대표적인 용법 구분 리스트를 만들어 해당 텍스트를 split(" ")으로 각각의 용법으로 나누고
+                                    # 용법구분리스트가 해당 리스트를 돌면서 유사도 비교를 통해 나온 값이 임계값 이상이면 해당 요소(ex)도포)를 기준으로 앞에 있는 애들을 +로 붙이고 슬라이싱으로 해당 요소 앞의 요소들은 지워준다
+                                    # 이를 공백 리스트가 될때 까지 반복한다.
+                                    #이후 품목명이 있는 셀의 y값을 기준으로 셀들을 모아 마지막 셀부터 돌면서 해당 셀의 요소가 용법 구분 리스트에 있는거면 해당 요소의 위치 부터
+                                    # 맨 앞까지 돌면서 요소들을 붙이고 ['1일1회도포', '1일2회도포'](위에서 추출한 용법을 공백 제거한 리스트)들과 비교하면서 같아지면
+                                    # 해당 drug_info리스트에 해당 용법 추가 
+        if autho == 1:               
+            cond = r'(\d{5,})\s*(.+)'
+        elif autho == 2:
+            cond = r'^(.+?)(\d{3,})$'
+        else:
+            cond = None
+
+        if cond:
+            usage_ratio_list = [Levenshtein.ratio(re.match(cond,  i.replace(" ","").split('(')[0]).group(2), name)  if re.match(cond,  i.replace(" ","").split('(')[0]) else Levenshtein.ratio(i, name) for i in self.rec_texts ]
+                        # for i,j in zip(max_usage_ratio, )
+        else:
+            usage_ratio_list = [Levenshtein.ratio(i, name) for i in self.rec_texts ]
+
+        max_usage_ratio = max(usage_ratio_list)
+        if max_usage_ratio > 0.7:
+            max_usage_idx = usage_ratio_list.index(max_usage_ratio)
+            name_min_y = self.rec_boxes[max_usage_idx][1]
+            upper_name_min_y = name_min_y + 20
+            lower_name_min_y = name_min_y - 20
+            same_row_list = [(self.rec_boxes[i][0], self.rec_texts[i]) for i in range(len(self.rec_boxes)) if lower_name_min_y <= int(self.rec_boxes[i][1]) <= upper_name_min_y]
+            same_row_list.sort(key= lambda x: x[0])
+            print('extract_element First: row_list',same_row_list)
+            print('extract_element First: last of row_list', same_row_list[-1])
+            last_element = same_row_list[-1][-1]
+        if last_element and not last_element.replace(" ","").isdigit():
+            return last_element
+        else:
+            return None
+        
+        
 model = prescription_ocr()
 
 # test_extract.extract_element(test_extract.table)
