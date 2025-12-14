@@ -23,7 +23,7 @@ class prescription_ocr():
         self.rec_boxes = []
         self.rec_texts = []
         self.Usages_candidate = []
-        
+        self.Usages_candidate2 = []
         
     def grid_predict(self, img):#격자인식 모델, Beautifulsoup의 html 파서로 행별 요소 출력
         # image = cv2.imread('prescription6.jpg')
@@ -99,6 +99,8 @@ class prescription_ocr():
                         usage_inst = []
 
             print('Usage_candidate', self.Usages_candidate)
+            self.Usages_candidate2 = [i.replace(" ","") for i in self.Usages_candidate]
+            print('Usage_candidate2', self.Usages_candidate2)
             return table 
         else:
             return None
@@ -124,7 +126,8 @@ class prescription_ocr():
                 if any(np.array(Dosratiolist) > 0.7):# Dosage 하고 비교한 값이 0.7이 넘으면 실행
                     print(Dosratiolist)
                     maxratio = max(Dosratiolist)
-                    maxratio_idx = Dosratiolist.index(maxratio)            
+                    maxratio_idx = Dosratiolist.index(maxratio)  
+                    print('inst, Dosage[idx]', inst, self.Dosage[maxratio_idx])          
                     return_Dosage.append(self.Dosage[maxratio_idx])
                 
                 elif leninst>=2:
@@ -160,11 +163,12 @@ class prescription_ocr():
                             usage = self.Find_Usage(name, 1)#여기서 
                             find_name_idx = box.index(inst)
                             if len(box) > len(return_Dosage):# 이거 검토한번 필요  -> Find_usage가 문제인줄알았는데 저함수에서 마지막요소 뽑아다 추가 안헀는데듀 I 1같은 마지막요소가 추가되어있음
-                                drug_info = box[find_name_idx+1:len(return_Dosage)-1]# 품목명을 제외한 return_Dosage 길이만큼의 요소를 뽑아야되서 이렇게 했는데 여전히 [find_name_idx+1:]한거 마냥 찍힘
+                                drug_info = box[find_name_idx+1:len(return_Dosage)]# 품목명을 제외한 return_Dosage 길이만큼의 요소를 뽑아야되서 이렇게 했는데 여전히 [find_name_idx+1:]한거 마냥 찍힘
                             else:
                                 drug_info = box[find_name_idx+1:]
                             if usage:
                                 drug_info.append(usage)
+                                print('name, usage', name, usage)
                             drug_info.insert(0,name)
                             print('추가될 drug_info', drug_info)
                             return_drug_info.append(drug_info)
@@ -194,12 +198,13 @@ class prescription_ocr():
                             usage = self.Find_Usage(name, 2)
                             find_name_idx = box.index(inst)
                             if len(box) > len(return_Dosage):
-                                drug_info = box[find_name_idx+1:len(return_Dosage)-1]
+                                drug_info = box[find_name_idx+1:len(return_Dosage)]
                             else:
                                 drug_info = box[find_name_idx+1:]
                             print('추가전 drug_info', drug_info)
                             if usage:
                                 drug_info.append(usage)
+                                print('name, usage', name, usage)
                             drug_info.insert(0,self.name_insurance.loc[name_in_dataset_idx, '품목명'])
                             print('추가될 drug_info', drug_info)
                             return_drug_info.append(drug_info)
@@ -234,12 +239,13 @@ class prescription_ocr():
                                 usage = self.Find_Usage(name, None)
                                 find_name_idx = box.index(inst)
                                 if len(box) > len(return_Dosage):
-                                    drug_info = box[find_name_idx+1:len(return_Dosage)-1]
+                                    drug_info = box[find_name_idx+1:len(return_Dosage)]
                                 else:
                                     drug_info = box[find_name_idx+1:]
 
                                 if usage:
                                     drug_info.append(usage)
+                                    print('name, usage', name, usage)
                                 drug_info.insert(0,self.name_insurance.loc[name_in_dataset_idx, '품목명'])
                                 print('추가될 drug_info', drug_info)
                                 return_drug_info.append(drug_info)
@@ -247,7 +253,7 @@ class prescription_ocr():
                     
                 
         return_Dosage.append('용법')
-        return_drug_info = [i[:len(return_Dosage)-1]+[i[-1]] for i in return_drug_info]# 여기서 [i[-1]] 추가하는 것 때문에 용법이 없는 애들도 ''가 추가 되는데 이게 
+       
                                                                                         # 대부분의 경우 해당 셀이 비어 있어서 ''로 출려되는 거기 때문에 나중에 후처리하던지 그냥 쓰면 될듯
         print(return_drug_info)
         print(return_Dosage)
@@ -389,14 +395,21 @@ class prescription_ocr():
             lower_name_min_y = name_min_y - 20
             same_row_list = [(self.rec_boxes[i][0], self.rec_texts[i]) for i in range(len(self.rec_boxes)) if lower_name_min_y <= int(self.rec_boxes[i][1]) <= upper_name_min_y]
             same_row_list.sort(key= lambda x: x[0])
+            same_row_list = [i[1] for i in same_row_list]
             print('extract_element First: row_list',same_row_list)
-            print('extract_element First: last of row_list', same_row_list[-1])
-            if same_row_list[-1][-1]: 
-                
-                last_element = same_row_list[-1][-1]
+            w = ''
+            for i in range(len(same_row_list)-1, -1, -1):
+                w =  same_row_list[i] + w
+                w = w.replace(" ","")
+                print(w)
+                if w in self.Usages_candidate2:
+                    last_element = self.Usages_candidate[self.Usages_candidate2.index(w)]
+                    print('Find Usage in Usage_candidate', last_element)
+                    break
+
             
             
-        if last_element and not last_element.replace(" ","").isdigit():
+        if last_element in self.Usages_candidate:
             return last_element
         else:
             return None
