@@ -415,7 +415,7 @@ class prescription_ocr():
             return None
         
         
-model = prescription_ocr()
+# model = prescription_ocr()
 
 # test_extract.extract_element(test_extract.table)
 
@@ -426,17 +426,17 @@ model = prescription_ocr()
 
 # model.extract_element(table)
 
-while True:
-    try:
-        img_name = input()
-        prescription = cv2.imread(img_name)
-        prescription = cv2.cvtColor(prescription, cv2.COLOR_BGR2GRAY)# 그레이 스케일로 바꿔야 인식 더 잘함
-        # binary_image = model.dotted_line_to_line(prescription)
-        table = model.grid_predict(prescription)
-        model.extract_element(table)
-    except Exception as e:
-        print(e)
-        continue
+# while True:
+#     try:
+#         img_name = input()
+#         prescription = cv2.imread(img_name)
+#         prescription = cv2.cvtColor(prescription, cv2.COLOR_BGR2GRAY)# 그레이 스케일로 바꿔야 인식 더 잘함
+#         # binary_image = model.dotted_line_to_line(prescription)
+#         table = model.grid_predict(prescription)
+#         model.extract_element(table)
+#     except Exception as e:
+#         print(e)
+#         continue
 
 #개 1 등 의 단위 요소는 무조건 숫자가 앞에 오는개 맞기 때문에
 #re.match(r'(\d+)(.*)') 해서 None이면 반대로 추출해서 순서 바꿔주거나

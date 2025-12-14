@@ -39,17 +39,19 @@ async def reponse_of_Paddle_OCR(image_file: UploadFile = File(...)): #image_file
     #unit8로 변환해주는 이유가 FastAPI는 바이트로 받아오기 때문에 처리하기 적절한 형태로 변환이 필요(client에서 파일 업로드할때로 byte 형태로 바꿔서 업로드함) 
     img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
     #B,G,R 숫자 배열을 이미지로 디코딩
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     print(img)
     if img is None:
         print("디코딩 실패")
         return {"error": '디코딩 실패'}
     else:
+
         print('ocr 시작')
         table = prescription_ocr_inst.grid_predict(img)
         if table: 
             Dosage, drug_info = prescription_ocr_inst.extract_element(table)
             result = {'Dosage': Dosage, 'drug_info': drug_info}
-        
+            print(result)
             return result
         else:
             print("격자 인식 실패")
