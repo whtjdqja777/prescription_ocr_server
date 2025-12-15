@@ -84,19 +84,21 @@ class prescription_ocr():
                     table.append(row)
             print(table)
             Usage_collection = soup.find_all('td', rowspan = True)
-            print('Whole_Usage_collection', Usage_collection[0].get_text(strip = True))
-
-            for td in Usage_collection:
-                print('Several_Usage_collection', td.get_text(strip=True))
-                element = td.get_text(strip=True).split(" ")
-                print('element: ', element)
-                usage_inst = [] 
-                cond = True
-                for w in element:
-                    usage_inst.append(w)
-                    if any(i in w for i in self.Usage_division_unit):
-                        self.Usages_candidate.append(" ".join(usage_inst))
-                        usage_inst = []
+            # print('Whole_Usage_collection', Usage_collection[0].get_text(strip = True))
+            if len(Usage_collection) !=0:
+                for td in Usage_collection:
+                    print('Several_Usage_collection', td.get_text(strip=True))
+                    element = td.get_text(strip=True).split(" ")
+                    print('element: ', element)
+                    usage_inst = [] 
+                    cond = True
+                    for w in element:
+                        usage_inst.append(w)
+                        if any(i in w for i in self.Usage_division_unit):
+                            self.Usages_candidate.append(" ".join(usage_inst))
+                            usage_inst = []
+            else: 
+                self.Usages_candidate = [i for i in self.rec_texts for j in self.Usage_division_unit if Levenshtein.ratio(i, j) > 0.7]
 
             print('Usage_candidate', self.Usages_candidate)
             self.Usages_candidate2 = [i.replace(" ","") for i in self.Usages_candidate]
@@ -189,6 +191,7 @@ class prescription_ocr():
                         nameratio = [Levenshtein.ratio(name, string) for name in self.name_insurance.loc[:, '품목명']]
                         max_name_ratio = max(nameratio)
                         name_in_dataset_idx = nameratio.index(max_name_ratio)
+                        name = self.name_insurance.loc[name_in_dataset_idx, '품목명']
                         print(string, max_name_ratio)
                         if max_name_ratio > 0.7:
                             print('통과', string, max_name_ratio)
@@ -269,7 +272,7 @@ class prescription_ocr():
                         
                         return_drug_info[i][j] = t+s
                 if return_Dosage[j][-2:] in self.Dosage_unit[0] and not return_drug_info[i][j].isdigit():#횟수, 일수에 포함이 되는 애인데 숫자가 아니면
-                    return_drug_info[i][j] = ''.join(re.findall('\d', return_drug_info[i][j]))
+                    return_drug_info[i][j] = ''.join(re.findall(r'\d', return_drug_info[i][j]))
                 elif return_Dosage[j][-2:] in self.Dosage_unit[1]:
                     m = re.match(r'(\d+\.?\d*)(.*)', return_drug_info[i][j].replace(" ",""))
                     
@@ -394,6 +397,7 @@ class prescription_ocr():
             upper_name_min_y = name_min_y + 20
             lower_name_min_y = name_min_y - 20
             same_row_list = [(self.rec_boxes[i][0], self.rec_texts[i]) for i in range(len(self.rec_boxes)) if lower_name_min_y <= int(self.rec_boxes[i][1]) <= upper_name_min_y]
+            
             same_row_list.sort(key= lambda x: x[0])
             same_row_list = [i[1] for i in same_row_list]
             print('extract_element First: row_list',same_row_list)

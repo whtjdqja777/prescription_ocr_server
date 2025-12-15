@@ -40,6 +40,10 @@ async def reponse_of_Paddle_OCR(image_file: UploadFile = File(...)): #image_file
     img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
     #B,G,R 숫자 배열을 이미지로 디코딩
     img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    
+    with open("from_app.png", "wb") as f:
+        f.write(img_file)
+
     print(img)
     if img is None:
         print("디코딩 실패")
