@@ -85,20 +85,22 @@ class prescription_ocr():
             print(table)
             Usage_collection = soup.find_all('td', rowspan = True)
             # print('Whole_Usage_collection', Usage_collection[0].get_text(strip = True))
-            if len(Usage_collection) !=0:
+            print('Usage_collection',len(Usage_collection))
+            print(Usage_collection)
+            if len(Usage_collection) > 0: #rowspan에서 용법 찾기 -> rowspan으로 되어 있는 곳이 용법이 적혀있는 곳일 확률이 높음
                 for td in Usage_collection:
                     print('Several_Usage_collection', td.get_text(strip=True))
                     element = td.get_text(strip=True).split(" ")
                     print('element: ', element)
                     usage_inst = [] 
-                    cond = True
+                    
                     for w in element:
                         usage_inst.append(w)
                         if any(i in w for i in self.Usage_division_unit):
                             self.Usages_candidate.append(" ".join(usage_inst))
                             usage_inst = []
-            else: 
-                self.Usages_candidate = [i for i in self.rec_texts for j in self.Usage_division_unit if Levenshtein.ratio(i, j) > 0.7]
+            
+            self.Usages_candidate = [i for i in self.rec_texts for j in self.Usage_division_unit if j in i] #모든 rec_texts에서 용법 찾기
 
             print('Usage_candidate', self.Usages_candidate)
             self.Usages_candidate2 = [i.replace(" ","") for i in self.Usages_candidate]
@@ -133,7 +135,7 @@ class prescription_ocr():
                     return_Dosage.append(self.Dosage[maxratio_idx])
                 
                 elif leninst>=2:
-                    
+                    name = None
                     
                     if  re.match(r'(\d{5,})\s*(.+)', inst.replace(" ","")):
                         print('1번쩨')
@@ -141,23 +143,25 @@ class prescription_ocr():
                         d, s = re.match(r'(\d{5,})\s*(.+)', inst.replace(" ","").split('(')[0]).groups()
                         print(d, s)
                         name_ratio_max = 0
-                        insurance_ratio_max = False
+                        
                             
                         if float(d) in self.name_insurance['보험코드'].values:
-                            insurance_ratio_max = True
+                            
+                            name = self.name_insurance.loc[self.name_insurance['보험코드'] == float(d), '품목명'].iloc[0]
                             
                         else:
                             name_ratio = [Levenshtein.ratio(i, s) for i in self.name_insurance['품목명']]
                             name_ratio_max = max(name_ratio)
+                            
+                            if name_ratio_max > 0.7:
+                                idx = name_ratio.index(name_ratio_max)
+                                name = self.name_insurance.loc[idx, '품목명']
+                                print('else_name', name)
 
 
-                        if insurance_ratio_max:
-                            name = self.name_insurance.loc[self.name_insurance['보험코드'] == float(d), '품목명'].iloc[0]
+                        
 
-                        elif name_ratio_max > 0.7:
-                            idx = name_ratio.index(name_ratio_max)
-                            name = self.name_insurance.loc[idx, '품목명']
-                            print('else_name', name)
+                        
                         # 여기서 부터 용법 찾는 코드 -> 이거 따로 함수화 해야함 ->  if re.match(r'(\d{5,})\s*(.+)', inst) elif ... 으로 사용할 정규식 정해주고 돌리면 될듯  
                         #함수로 만들어서 1번째, 2번째, 3번째 메인코드에 붙이기
 
@@ -402,10 +406,12 @@ class prescription_ocr():
             same_row_list = [i[1] for i in same_row_list]
             print('extract_element First: row_list',same_row_list)
             w = ''
+            print(self.Usages_candidate2)
             for i in range(len(same_row_list)-1, -1, -1):
                 w =  same_row_list[i] + w
                 w = w.replace(" ","")
                 print(w)
+                
                 if w in self.Usages_candidate2:
                     last_element = self.Usages_candidate[self.Usages_candidate2.index(w)]
                     print('Find Usage in Usage_candidate', last_element)
@@ -419,7 +425,7 @@ class prescription_ocr():
             return None
         
         
-# model = prescription_ocr()
+# q
 
 # test_extract.extract_element(test_extract.table)
 
