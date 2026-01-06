@@ -302,7 +302,7 @@ class prescription_ocr():
                             
         print(return_drug_info)
         print(return_Dosage)
-        return return_drug_info, return_Dosage 
+        return return_Dosage, return_drug_info  
     
     def insert_padding(self,img): #패딩 주는 함수
         padded_img = cv2.copyMakeBorder(img,

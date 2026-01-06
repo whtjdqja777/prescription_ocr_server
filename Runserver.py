@@ -54,6 +54,8 @@ async def reponse_of_Paddle_OCR(image_file: UploadFile = File(...)): #image_file
         table = prescription_ocr_inst.grid_predict(img)
         if table: 
             Dosage, drug_info = prescription_ocr_inst.extract_element(table)
+            print("Dosage: ", Dosage)
+            print("Drug_info: ", drug_info)
             result = {'Dosage': Dosage, 'drug_info': drug_info}
             print(result)
             return result
