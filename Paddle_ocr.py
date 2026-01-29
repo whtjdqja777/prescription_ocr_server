@@ -18,12 +18,13 @@ class prescription_ocr():
                           'IU','회분','포','캡슐','캡슐정','스푼','ml 스푼','g','FTU']
         self.table = [['653800341 레보트로시럽', '9 cc', '3 cc', '3', '3'], ['새로딘시럽(로라타딘) 644000941', '개 1', '1 개', '1', '3'], ['유시락스시럽 654100091', '18 cc', '6 cC gm0.6667gm', '3 3', '3 3'], ['싱카스트추정5밀리그램(몬테루카 542103840', '1 정', '정', '1', '30'], ['645700564 삼아리도맥스크림', '개 1', '1 개', '1', '1']]
         self.Dosage_unit = [['횟수', '일수'], ['여량', '약량']]
-        self.Usage_division_unit = ['복용','경구투여','투여','도포','외용','점안','점비','점이','흡입','주사','정주','근주','피주','좌약','삽입','질정','설하','사용', '식후']
+        self.Usage_division_unit = ['복용','경구투여','투여','도포','외용','점안','점비','점이','흡입','주사','정주','근주','피주','좌약','삽입','질정','설하','사용', '식후', '식사후', '식사 후', '식전', '식사전', '식사 전']
         #외용도포 같이 공백 기준으로 split이 안되는게 있음으로 도포 in 외용 도포 같은 조건문 추가 필요 
         self.rec_boxes = []
         self.rec_texts = []
         self.Usages_candidate = []
         self.Usages_candidate2 = []
+        self.Usages_candidate3 = []
         
     def grid_predict(self, img):#격자인식 모델, Beautifulsoup의 html 파서로 행별 요소 출력
         # image = cv2.imread('prescription6.jpg')
@@ -97,9 +98,9 @@ class prescription_ocr():
                     for w in element:
                         usage_inst.append(w)
                         if any(i in w for i in self.Usage_division_unit):
-                            self.Usages_candidate.append(" ".join(usage_inst))
+                            self.Usages_candidate3.append(" ".join(usage_inst))
                             usage_inst = []
-            
+            print("Usages_candidate3", self.Usages_candidate3)
             self.Usages_candidate = [i for i in self.rec_texts for j in self.Usage_division_unit if j in i] #모든 rec_texts에서 용법 찾기
 
             print('Usage_candidate', self.Usages_candidate)
@@ -406,19 +407,26 @@ class prescription_ocr():
             same_row_list = [i[1] for i in same_row_list]
             print('extract_element First: row_list',same_row_list)
             w = ''
+            tmpw = ''
             print(self.Usages_candidate2)
             for i in range(len(same_row_list)-1, -1, -1):
-                w =  same_row_list[i] + w
-                w = w.replace(" ","")
+                w = same_row_list[i]
+                tmpw =  same_row_list[i] + tmpw
+                tmpw = tmpw.replace(" ","")
                 print(w)
                 
-                if w in self.Usages_candidate2:
-                    last_element = self.Usages_candidate[self.Usages_candidate2.index(w)]
+                if tmpw in self.Usages_candidate2:
+                   
+                        
+                    last_element = self.Usages_candidate[self.Usages_candidate2.index(tmpw)]
+                    
                     print('Find Usage in Usage_candidate', last_element)
                     break
-
+                if w in self.Usages_candidate2:
+                    tmp_element = self.Usages_candidate[self.Usages_candidate2.index(w)]
             
-            
+        if not tmpw:
+            last_element = tmp_element
         if last_element in self.Usages_candidate:
             return last_element
         else:
