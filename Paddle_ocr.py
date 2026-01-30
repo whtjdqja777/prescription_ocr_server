@@ -101,7 +101,16 @@ class prescription_ocr():
                             self.Usages_candidate3.append(" ".join(usage_inst))
                             usage_inst = []
             print("Usages_candidate3", self.Usages_candidate3)
-            self.Usages_candidate = [i for i in self.rec_texts for j in self.Usage_division_unit if j in i] #모든 rec_texts에서 용법 찾기
+            for j in self.Usage_division_unit:
+                for i in range(len(self.rec_texts)-1, -1,-1):
+                    if j in self.rec_texts[i]:
+                        added = self.rec_texts[i]
+                        m = re.match(r'(\d+)\s*(분|시간)', self.rec_texts[i+1])
+                        
+                        if m and i > 0 :
+                            added = self.rec_texts[i] + self.rec_texts[i+1]
+                        self.Usages_candidate.append(added)
+            # self.Usages_candidate = [i for i in self.rec_texts for j in self.Usage_division_unit if j in i] #모든 rec_texts에서 용법 찾기
 
             print('Usage_candidate', self.Usages_candidate)
             self.Usages_candidate2 = [i.replace(" ","") for i in self.Usages_candidate]
@@ -405,6 +414,16 @@ class prescription_ocr():
             
             same_row_list.sort(key= lambda x: x[0])
             same_row_list = [i[1] for i in same_row_list]
+            
+            popi = False
+            for i in range(len(same_row_list)-1, -1, -1):
+                m = re.match(r'(\d+)\s*(분|시간)', same_row_list[i])
+                if m:
+                    same_row_list[i] = same_row_list[i-1] + same_row_list[i]
+                    popi = i-1
+            if popi:
+                same_row_list.pop(popi)
+
             print('extract_element First: row_list',same_row_list)
             w = ''
             tmpw = ''
@@ -413,7 +432,8 @@ class prescription_ocr():
                 w = same_row_list[i]
                 tmpw =  same_row_list[i] + tmpw
                 tmpw = tmpw.replace(" ","")
-                print(w)
+                print("w", w)
+                print("tmpw", tmpw)
                 
                 if tmpw in self.Usages_candidate2:
                    
