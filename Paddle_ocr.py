@@ -87,6 +87,7 @@ class prescription_ocr():
             Usage_collection = soup.find_all('td', rowspan = True)
             # print('Whole_Usage_collection', Usage_collection[0].get_text(strip = True))
             print('Usage_collection',len(Usage_collection))
+            print('Find_rowspan: ', Usage_collection)
             print(Usage_collection)
             if len(Usage_collection) > 0: #rowspan에서 용법 찾기 -> rowspan으로 되어 있는 곳이 용법이 적혀있는 곳일 확률이 높음
                 for td in Usage_collection:
@@ -101,18 +102,31 @@ class prescription_ocr():
                             self.Usages_candidate3.append(" ".join(usage_inst))
                             usage_inst = []
             print("Usages_candidate3", self.Usages_candidate3)
+            print("self.rec_texts", self.rec_texts)
             for j in self.Usage_division_unit:
                 for i in range(len(self.rec_texts)-1, -1,-1):
                     if j in self.rec_texts[i]:
                         added = self.rec_texts[i]
+
+                        # 이건 '식후', '30분' 같이 나뉘어져 있으면 붙이기 위해 있는 코드
                         m = re.match(r'(\d+)\s*(분|시간)', self.rec_texts[i+1])
-                        
-                        if m and i > 0 :
+                        if m and i > 0 :  
                             added = self.rec_texts[i] + self.rec_texts[i+1]
                         self.Usages_candidate.append(added)
             # self.Usages_candidate = [i for i in self.rec_texts for j in self.Usage_division_unit if j in i] #모든 rec_texts에서 용법 찾기
 
             print('Usage_candidate', self.Usages_candidate)
+            
+            print("Usage_candidate: [", end= "")
+            for i in range(len(self.Usages_candidate)):
+                if i % 2 == 0 and i != 0:
+                    print()
+                
+                if i == len(self.Usages_candidate)-1:
+                    print(f"{self.Usages_candidate[i]}]", end="")
+                else:
+                    print(f"{self.Usages_candidate[i]}, ",end = "")
+            print()
             self.Usages_candidate2 = [i.replace(" ","") for i in self.Usages_candidate]
             print('Usage_candidate2', self.Usages_candidate2)
             return table 
@@ -380,7 +394,7 @@ class prescription_ocr():
                                     # 해결방법: 해당 후처리 로직을 품목명 찾는 과정에서 수행하던지 용법 추가를 해당 후처리 후 수행하던지 해야됨 
 
                                     #해결 아이디어2: rec_boxes, rec_texts 보면 [-> 1일 1회 도포] 이게 공백을 기준으로 나뉘어져 각각의 셀로 인식하고 있는것을 볼 수 있음
-                                    #그럼 html_pred에 있는 <td 'rowspan'=6> -> 1일 1회 도포 -> 1일 2회 도포...</td>를 볼수 있는데 
+                                    #그럼 html_pred에 있는 <td 'rowspan'=6> -> 1일 1회 도포 -> 1일 2회 도포...</td>를 볼수 있는데  
                                     #[도포, 복용, 분, 식후]등의 대표적인 용법 구분 리스트를 만들어 해당 텍스트를 split(" ")으로 각각의 용법으로 나누고
                                     # 용법구분리스트가 해당 리스트를 돌면서 유사도 비교를 통해 나온 값이 임계값 이상이면 해당 요소(ex)도포)를 기준으로 앞에 있는 애들을 +로 붙이고 슬라이싱으로 해당 요소 앞의 요소들은 지워준다
                                     # 이를 공백 리스트가 될때 까지 반복한다.
@@ -452,7 +466,8 @@ class prescription_ocr():
         else:
             return None
         
-        
+    
+
 # q
 
 # test_extract.extract_element(test_extract.table)
